@@ -19,7 +19,7 @@ void main()
     vec3 texColor = texture(texture_diffuse1, TexCoords).rgb;
 	
 	 // ambient
-    float ambientStrength = 0.8;
+    float ambientStrength = 0.3;
     vec3 ambient = ambientStrength * lightColor;
   	
     // diffuse
