@@ -1,6 +1,4 @@
-﻿
-
-#include <Windows.h>
+﻿#include <Windows.h>
 #include <locale>
 #include <codecvt>
 
@@ -20,6 +18,7 @@
 #include <fstream>
 #include <sstream>
 #include "Shader.h"
+#include "Model.h"
 
 #pragma comment (lib, "glfw3dll.lib")
 #pragma comment (lib, "glew32.lib")
@@ -48,7 +47,7 @@ class Camera
 private:
 	// Default camera values
 	const float zNEAR = 0.1f;
-	const float zFAR = 500.f;
+	const float zFAR = 200.f;
 	const float YAW = -90.0f;
 	const float PITCH = 0.0f;
 	const float FOV = 45.0f;
@@ -277,7 +276,7 @@ public:
 		glm::mat4 model2 = glm::scale(glm::mat4(1.0f), glm::vec3(2.8f, 3.2f, 3.8f));
 		model2 = glm::translate(model2, glm::vec3(0.0f, 0.1f, 0.0f));
 		shader.setMat4("model", model2);
-		shader.SetVec3("objectColor", 0.0f, 0.0f, 0.0f); // Black bottom
+		shader.SetVec3("objectColor", 0.0f, 0.3f, 0.0f); // Black bottom
 		shader.setFloat("transparency", 1.0f);
 		glBindVertexArray(VAO2);
 		glDrawArrays(GL_TRIANGLES, 0, 30);
@@ -490,6 +489,8 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+	glEnable(GL_DEPTH_TEST);
+
 	// glfw window creation
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Lab 7", NULL, NULL);
 	if (window == NULL) {
@@ -514,14 +515,34 @@ int main()
 
 
 	pCamera = new Camera(SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0, 0.0, 3.0));
+	glm::vec3 lightPos(0.0f, 0.0f, 1.0f);
 
+
+	wchar_t buffer[MAX_PATH];
+	GetCurrentDirectoryW(MAX_PATH, buffer);
+
+	std::wstring executablePath(buffer);
+	std::wstring wscurrentPath = executablePath.substr(0, executablePath.find_last_of(L"\\/"));
+
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+	std::string currentPath = converter.to_bytes(wscurrentPath);
 
 	Shader lightingShader("PhongLight.vs", "PhongLight.fs");
 	Shader lampShader("Lamp.vs", "Lamp.fs");
-
+	Shader lightingWithTextureShader("PhongLightWithTexture.vs", "PhongLightWithTexture.fs");
 	Aquarium aquarium;
 
-	glm::vec3 lightPos(0.0f, 0.0f, 1.0f);
+
+	std::string piratObjFileName = (currentPath + "\\Models\\Fish\\Fish.obj");
+	Model piratObjModel(piratObjFileName, false);
+
+
+	//std::string GrassLawnFileName = (currentPath + "\\Models\\Relief\\2x8k_rock_terrain_SF.obj");
+	//Model GrassLawnModel(GrassLawnFileName, false);
+
+	//std::string HelicopterFileName = (currentPath + "\\Models\\Helicopter\\uh60.dae");
+	//Model HelicopterModel(HelicopterFileName, false);
+
 
 	// render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -552,18 +573,24 @@ int main()
 		aquarium.Render(lightingShader, *pCamera);
 
 
-		// also draw the lamp object
-		lampShader.use();
-		lampShader.setMat4("projection", pCamera->GetProjectionMatrix());
-		lampShader.setMat4("view", pCamera->GetViewMatrix());
-		glm::mat4 model = glm::translate(glm::mat4(1.0), lightPos);
-		model = glm::scale(model, glm::vec3(0.05f)); // a smaller cube
-		lampShader.setMat4("model", model);
+		lightingWithTextureShader.use();
+		lightingWithTextureShader.SetVec3("objectColor", 0.5f, 1.0f, 0.31f);
+		lightingWithTextureShader.SetVec3("lightColor", 1.0f, 1.0f, 1.0f);
+		lightingWithTextureShader.SetVec3("lightPos", lightPos);
+		lightingWithTextureShader.SetVec3("viewPos", pCamera->GetPosition());
+		lightingWithTextureShader.setInt("texture_diffuse1", 0);
 
-		unsigned int lightVAO;
-		glGenVertexArrays(1, &lightVAO);
-		glBindVertexArray(lightVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		lightingWithTextureShader.setMat4("projection", pCamera->GetProjectionMatrix());
+		lightingWithTextureShader.setMat4("view", pCamera->GetViewMatrix());
+		glm::mat4 piratModel = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, 0.8f, 0.0f)); // Ridică peștele
+		piratModel = glm::scale(piratModel, glm::vec3(5.0f)); // Ajustează dimensiunea peștelui
+		
+		lightingWithTextureShader.setMat4("model", piratModel);
+		piratObjModel.Draw(lightingWithTextureShader);
+
+		// Desenează acvariul transparent
+		
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);
