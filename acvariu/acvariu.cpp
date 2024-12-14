@@ -1,5 +1,4 @@
-﻿
-#include <Windows.h>
+﻿#include <Windows.h>
 #include <locale>
 #include <codecvt>
 
@@ -20,14 +19,16 @@
 #include <sstream>
 #include "Shader.h"
 #include "Model.h"
+#include <stb_image.h>
+
 
 #pragma comment (lib, "glfw3dll.lib")
 #pragma comment (lib, "glew32.lib")
 #pragma comment (lib, "OpenGL32.lib")
 
-// settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+
+const unsigned int SCR_WIDTH = 1900;
+const unsigned int SCR_HEIGHT = 1800;
 
 
 glm::vec3 linearFishPosition(0.0f, 0.8f, 0.0f); // Poziția inițială a peștelui
@@ -49,6 +50,43 @@ enum ECameraMovementType
 	DOWN
 };
 
+unsigned int LoadTexture(const std::string& filePath)
+{
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+
+	int width, height, nrComponents;
+	unsigned char* data = stbi_load(filePath.c_str(), &width, &height, &nrComponents, 0);
+	if (data)
+	{
+		GLenum format;
+		if (nrComponents == 1)
+			format = GL_RED;
+		else if (nrComponents == 3)
+			format = GL_RGB;
+		else if (nrComponents == 4)
+			format = GL_RGBA;
+
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		stbi_image_free(data);
+	}
+	else
+	{
+		std::cerr << "Failed to load texture at path: " << filePath << std::endl;
+		stbi_image_free(data);
+	}
+
+	return textureID;
+}
+
 class Camera
 {
 private:
@@ -61,6 +99,7 @@ private:
 	glm::vec3 startPosition;
 
 public:
+
 	Camera(const int width, const int height, const glm::vec3& position)
 	{
 		startPosition = position;
@@ -251,7 +290,7 @@ protected:
 class Aquarium
 {
 public:
-	unsigned int VBO1, VAO1, VBO2, VAO2;
+	unsigned int VBO1, VAO1, VBO2, VAO2,VBO3,VAO3;
 
 	Aquarium()
 	{
@@ -263,31 +302,67 @@ public:
 		Cleanup();
 	}
 
-	void Render(Shader& shader, const Camera& camera)
+	void RenderBottom(Shader& shader, const Camera& camera)
 	{
-
-		// Render the first cube (inner part)
 		shader.use();
 		shader.setMat4("projection", camera.GetProjectionMatrix());
 		shader.setMat4("view", camera.GetViewMatrix());
 
-		// Render the glass part (semi-transparent)
-		glm::mat4 model1 = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f));
-		shader.setMat4("model", model1);
-		shader.SetVec3("objectColor", 0.9f, 0.9f, 0.9f);
-		shader.setFloat("transparency", 0.3f); // Semi-transparent glass
-		glBindVertexArray(VAO1);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-
-		// Render the second cube (bottom part)
+		// Bottom part (solid)
 		glm::mat4 model2 = glm::scale(glm::mat4(1.0f), glm::vec3(2.8f, 3.2f, 3.8f));
-		model2 = glm::translate(model2, glm::vec3(0.0f, 0.1f, 0.0f));
+		model2 = glm::translate(model2, glm::vec3(0.0f, -0.1f, 0.0f));
 		shader.setMat4("model", model2);
-		shader.SetVec3("objectColor", 0.0f, 0.3f, 0.0f); // Black bottom
-		shader.setFloat("transparency", 1.0f);
+		shader.SetVec3("objectColor", 0.0f, 0.3f, 0.0f); // Dark green for bottom
+		shader.setFloat("transparency", 1.0f);           // Fully opaque
 		glBindVertexArray(VAO2);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+	}
+
+	void RenderGlass(Shader& shader, const Camera& camera)
+	{
+		shader.use();
+		shader.setMat4("projection", camera.GetProjectionMatrix());
+		shader.setMat4("view", camera.GetViewMatrix());
+
+		// Glass part (semi-transparent)
+		glm::mat4 model1 = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f));
+		model1 = glm::translate(model1, glm::vec3(0.0f, -0.15f, 0.0f));
+
+		shader.setMat4("model", model1);
+		shader.SetVec3("objectColor", 0.9f, 0.9f, 0.9f); // Light gray for glass
+		shader.setFloat("transparency", 0.3f);          // Semi-transparent glass
+		glBindVertexArray(VAO1);
 		glDrawArrays(GL_TRIANGLES, 0, 30);
 	}
+
+	
+
+	void RenderWater(Shader& shader, const Camera& camera, float time, const std::string& texturePath)
+	{
+		// Load the texture dynamically from the provided path
+		unsigned int textureID = LoadTexture(texturePath);
+
+		shader.use();
+		shader.setMat4("projection", camera.GetProjectionMatrix());
+		shader.setMat4("view", camera.GetViewMatrix());
+
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(0.0f, -0.6f, 0.0f)); // Slightly raise the water
+		model = glm::scale(model, glm::vec3(2.97f, 2.6f, 2.97f));   // Make it smaller than the glass
+
+		shader.setMat4("model", model);
+		shader.SetVec3("objectColor", 0.0f, 0.5f, 1.0f); // Light blue water
+		shader.setFloat("time", time);                   // Pass the time for animation
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, textureID);         // Bind the loaded texture
+		shader.setInt("texture1", 0);                    // Use texture unit 0
+
+		glBindVertexArray(VAO3);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glBindVertexArray(0);
+	}
+
 
 private:
 	void InitializeBuffers()
@@ -333,6 +408,14 @@ private:
 		  1.0f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
 		 -1.0f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
 		 -1.0f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+
+		 -1.0f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+		  1.0f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+		  1.0f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+		  1.0f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+		 -1.0f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+	     -1.0f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
+
 		};
 
 		glGenVertexArrays(1, &VAO1);
@@ -348,46 +431,57 @@ private:
 		glEnableVertexAttribArray(1);
 
 		// Second cube (bottom part)
+		// Second cube (bottom part)
+		// Second cube (bottom part)
 		float vertices2[] = {
-			// Fața din față
-		-1.2f, -0.501f, -0.5f,  0.0f,  0.0f, -1.0f,
-		 1.2f, -0.501f, -0.5f,  0.0f,  0.0f, -1.0f,
-		 1.2f, -0.6f, -0.5f,    0.0f,  0.0f, -1.0f,
-		 1.2f, -0.6f, -0.5f,    0.0f,  0.0f, -1.0f,
-		-1.2f, -0.6f, -0.5f,    0.0f,  0.0f, -1.0f,
-		-1.2f, -0.501f, -0.5f,  0.0f,  0.0f, -1.0f,
+			// Front face
+			-1.2f, -0.501f, -0.5f,  0.0f,  0.0f, -1.0f,
+			 1.2f, -0.501f, -0.5f,  0.0f,  0.0f, -1.0f,
+			 1.2f, -0.6f, -0.5f,    0.0f,  0.0f, -1.0f,
+			 1.2f, -0.6f, -0.5f,    0.0f,  0.0f, -1.0f,
+			-1.2f, -0.6f, -0.5f,    0.0f,  0.0f, -1.0f,
+			-1.2f, -0.501f, -0.5f,  0.0f,  0.0f, -1.0f,
 
-		// Fața din spate
-		-1.2f, -0.501f,  0.5f,  0.0f,  0.0f,  1.0f,
-		 1.2f, -0.501f,  0.5f,  0.0f,  0.0f,  1.0f,
-		 1.2f, -0.6f,  0.5f,    0.0f,  0.0f,  1.0f,
-		 1.2f, -0.6f,  0.5f,    0.0f,  0.0f,  1.0f,
-		-1.2f, -0.6f,  0.5f,    0.0f,  0.0f,  1.0f,
-		-1.2f, -0.501f,  0.5f,  0.0f,  0.0f,  1.0f,
+			// Back face
+			-1.2f, -0.501f,  0.5f,  0.0f,  0.0f,  1.0f,
+			 1.2f, -0.501f,  0.5f,  0.0f,  0.0f,  1.0f,
+			 1.2f, -0.6f,  0.5f,    0.0f,  0.0f,  1.0f,
+			 1.2f, -0.6f,  0.5f,    0.0f,  0.0f,  1.0f,
+			-1.2f, -0.6f,  0.5f,    0.0f,  0.0f,  1.0f,
+			-1.2f, -0.501f,  0.5f,  0.0f,  0.0f,  1.0f,
 
-		// Fața stângă
-		-1.2f, -0.6f,  0.5f,  -1.0f,  0.0f,  0.0f,
-		-1.2f, -0.6f, -0.5f,  -1.0f,  0.0f,  0.0f,
-		-1.2f, -0.501f, -0.5f, -1.0f,  0.0f,  0.0f,
-		-1.2f, -0.501f, -0.5f, -1.0f,  0.0f,  0.0f,
-		-1.2f, -0.501f,  0.5f, -1.0f,  0.0f,  0.0f,
-		-1.2f, -0.6f,  0.5f,  -1.0f,  0.0f,  0.0f,
+			// Left face
+			-1.2f, -0.6f,  0.5f,  -1.0f,  0.0f,  0.0f,
+			-1.2f, -0.6f, -0.5f,  -1.0f,  0.0f,  0.0f,
+			-1.2f, -0.501f, -0.5f, -1.0f,  0.0f,  0.0f,
+			-1.2f, -0.501f, -0.5f, -1.0f,  0.0f,  0.0f,
+			-1.2f, -0.501f,  0.5f, -1.0f,  0.0f,  0.0f,
+			-1.2f, -0.6f,  0.5f,  -1.0f,  0.0f,  0.0f,
 
-		// Fața dreaptă
-		 1.2f, -0.6f,  0.5f,   1.0f,  0.0f,  0.0f,
-		 1.2f, -0.6f, -0.5f,   1.0f,  0.0f,  0.0f,
-		 1.2f, -0.501f, -0.5f, 1.0f,  0.0f,  0.0f,
-		 1.2f, -0.501f, -0.5f, 1.0f,  0.0f,  0.0f,
-		 1.2f, -0.501f,  0.5f, 1.0f,  0.0f,  0.0f,
-		 1.2f, -0.6f,  0.5f,   1.0f,  0.0f,  0.0f,
+			// Right face
+			 1.2f, -0.6f,  0.5f,   1.0f,  0.0f,  0.0f,
+			 1.2f, -0.6f, -0.5f,   1.0f,  0.0f,  0.0f,
+			 1.2f, -0.501f, -0.5f, 1.0f,  0.0f,  0.0f,
+			 1.2f, -0.501f, -0.5f, 1.0f,  0.0f,  0.0f,
+			 1.2f, -0.501f,  0.5f, 1.0f,  0.0f,  0.0f,
+			 1.2f, -0.6f,  0.5f,   1.0f,  0.0f,  0.0f,
 
-		 // Fața de jos
-		 -1.2f, -0.6f, -0.5f,  0.0f, -1.0f,  0.0f,
-		  1.2f, -0.6f, -0.5f,  0.0f, -1.0f,  0.0f,
-		  1.2f, -0.6f,  0.5f,  0.0f, -1.0f,  0.0f,
-		  1.2f, -0.6f,  0.5f,  0.0f, -1.0f,  0.0f,
-		 -1.2f, -0.6f,  0.5f,  0.0f, -1.0f,  0.0f,
-		 -1.2f, -0.6f, -0.5f,  0.0f, -1.0f,  0.0f,
+			 // Bottom face
+			 -1.2f, -0.6f, -0.5f,  0.0f, -1.0f,  0.0f,
+			  1.2f, -0.6f, -0.5f,  0.0f, -1.0f,  0.0f,
+			  1.2f, -0.6f,  0.5f,  0.0f, -1.0f,  0.0f,
+			  1.2f, -0.6f,  0.5f,  0.0f, -1.0f,  0.0f,
+			 -1.2f, -0.6f,  0.5f,  0.0f, -1.0f,  0.0f,
+			 -1.2f, -0.6f, -0.5f,  0.0f, -1.0f,  0.0f,
+
+			 // Top face (newly added)
+		 -1.2f, -0.501f, -0.5f,  0.0f,  1.0f,  0.0f,  // Top-left back
+		  1.2f, -0.501f, -0.5f,  0.0f,  1.0f,  0.0f,  // Top-right back
+		  1.2f, -0.501f,  0.5f,  0.0f,  1.0f,  0.0f,  // Top-right front
+		  1.2f, -0.501f,  0.5f,  0.0f,  1.0f,  0.0f,  // Top-right front
+		 -1.2f, -0.501f,  0.5f,  0.0f,  1.0f,  0.0f,  // Top-left front
+		-1.2f, -0.501f, -0.5f,  0.0f,  1.0f,  0.0f   // Top-left back
+
 		};
 
 		glGenVertexArrays(1, &VAO2);
@@ -403,12 +497,81 @@ private:
 		glEnableVertexAttribArray(1);
 	}
 
+	void InitializeWaterBuffer() {
+		float waterVertices[] = {
+			// Positions             // Normals
+			// Front face
+			-1.0f, -1.0f,  1.0f,     0.0f,  0.0f,  1.0f,
+			 1.0f, -1.0f,  1.0f,     0.0f,  0.0f,  1.0f,
+			 1.0f,  1.0f,  1.0f,     0.0f,  0.0f,  1.0f,
+			 1.0f,  1.0f,  1.0f,     0.0f,  0.0f,  1.0f,
+			-1.0f,  1.0f,  1.0f,     0.0f,  0.0f,  1.0f,
+			-1.0f, -1.0f,  1.0f,     0.0f,  0.0f,  1.0f,
+
+			// Back face
+			-1.0f, -1.0f, -1.0f,     0.0f,  0.0f, -1.0f,
+			 1.0f, -1.0f, -1.0f,     0.0f,  0.0f, -1.0f,
+			 1.0f,  1.0f, -1.0f,     0.0f,  0.0f, -1.0f,
+			 1.0f,  1.0f, -1.0f,     0.0f,  0.0f, -1.0f,
+			-1.0f,  1.0f, -1.0f,     0.0f,  0.0f, -1.0f,
+			-1.0f, -1.0f, -1.0f,     0.0f,  0.0f, -1.0f,
+
+			// Left face
+			-1.0f,  1.0f,  1.0f,    -1.0f,  0.0f,  0.0f,
+			-1.0f,  1.0f, -1.0f,    -1.0f,  0.0f,  0.0f,
+			-1.0f, -1.0f, -1.0f,    -1.0f,  0.0f,  0.0f,
+			-1.0f, -1.0f, -1.0f,    -1.0f,  0.0f,  0.0f,
+			-1.0f, -1.0f,  1.0f,    -1.0f,  0.0f,  0.0f,
+			-1.0f,  1.0f,  1.0f,    -1.0f,  0.0f,  0.0f,
+
+			// Right face
+			 1.0f,  1.0f,  1.0f,     1.0f,  0.0f,  0.0f,
+			 1.0f,  1.0f, -1.0f,     1.0f,  0.0f,  0.0f,
+			 1.0f, -1.0f, -1.0f,     1.0f,  0.0f,  0.0f,
+			 1.0f, -1.0f, -1.0f,     1.0f,  0.0f,  0.0f,
+			 1.0f, -1.0f,  1.0f,     1.0f,  0.0f,  0.0f,
+			 1.0f,  1.0f,  1.0f,     1.0f,  0.0f,  0.0f,
+
+			 // Top face
+			 -1.0f,  1.0f,  1.0f,     0.0f,  1.0f,  0.0f,
+			  1.0f,  1.0f,  1.0f,     0.0f,  1.0f,  0.0f,
+			  1.0f,  1.0f, -1.0f,     0.0f,  1.0f,  0.0f,
+			  1.0f,  1.0f, -1.0f,     0.0f,  1.0f,  0.0f,
+			 -1.0f,  1.0f, -1.0f,     0.0f,  1.0f,  0.0f,
+			 -1.0f,  1.0f,  1.0f,     0.0f,  1.0f,  0.0f,
+
+			 // Bottom face
+			 -1.0f, -1.0f,  1.0f,     0.0f, -1.0f,  0.0f,
+			  1.0f, -1.0f,  1.0f,     0.0f, -1.0f,  0.0f,
+			  1.0f, -1.0f, -1.0f,     0.0f, -1.0f,  0.0f,
+			  1.0f, -1.0f, -1.0f,     0.0f, -1.0f,  0.0f,
+			 -1.0f, -1.0f, -1.0f,     0.0f, -1.0f,  0.0f,
+			 -1.0f, -1.0f,  1.0f,     0.0f, -1.0f,  0.0f,
+		};
+
+		glGenVertexArrays(1, &VAO3);
+		glGenBuffers(1, &VBO3);
+
+		glBindVertexArray(VAO3);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO3);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(waterVertices), waterVertices, GL_STATIC_DRAW);
+
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+		glEnableVertexAttribArray(1);
+
+		glBindVertexArray(0);
+	}
+
 	void Cleanup()
 	{
 		glDeleteVertexArrays(1, &VAO1);
 		glDeleteBuffers(1, &VBO1);
 		glDeleteVertexArrays(1, &VAO2);
 		glDeleteBuffers(1, &VBO2);
+		glDeleteVertexArrays(1, &VAO3);
+		glDeleteBuffers(1, &VBO3);
 	}
 };
 
@@ -488,6 +651,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 }
 
+
 int main()
 {
 	// glfw: initialize and configure
@@ -496,7 +660,7 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	glEnable(GL_DEPTH_TEST);
+
 
 	// glfw window creation
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Lab 7", NULL, NULL);
@@ -511,6 +675,9 @@ int main()
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 	glfwSetKeyCallback(window, key_callback);
+	// Lock the cursor to the window and disable its visibility
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 
 	// tell GLFW to capture our mouse
 	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -518,10 +685,12 @@ int main()
 	glewInit();
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_DEPTH_TEST);
+	
 
 
 
-	pCamera = new Camera(SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0, 0.0, 3.0));
+	pCamera = new Camera(SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0, 0.0, 6.0));
 	glm::vec3 lightPos(0.0f, 0.0f, 1.0f);
 
 
@@ -536,19 +705,18 @@ int main()
 
 	Shader lightingShader("PhongLight.vs", "PhongLight.fs");
 	Shader lampShader("Lamp.vs", "Lamp.fs");
-	Shader lightingWithTextureShader("PhongLightWithTexture.vs", "PhongLightWithTexture.fs");
+	Shader waterShader("Water.vs", "Water.fs");
+	Shader lightingWithTextureShader("PhongLightWithTexture.vs", "PhongLightWithTexture.fs");\
 	Aquarium aquarium;
 
 
 	std::string piratObjFileName = (currentPath + "\\Models\\Fish\\Fish.obj");
 	Model piratObjModel(piratObjFileName, false);
 
+	std::string texturePath = (currentPath + "\\Models\\water.jpg");
 
-	//std::string GrassLawnFileName = (currentPath + "\\Models\\Relief\\2x8k_rock_terrain_SF.obj");
-	//Model GrassLawnModel(GrassLawnFileName, false);
 
-	//std::string HelicopterFileName = (currentPath + "\\Models\\Helicopter\\uh60.dae");
-	//Model HelicopterModel(HelicopterFileName, false);
+	
 
 
 	// render loop
@@ -559,6 +727,8 @@ int main()
 		lastFrame = currentFrame;
 
 		glClearColor(0.68f, 0.85f, 0.90f, 1.0f); // RGB pentru albastru deschis
+
+		
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -577,7 +747,18 @@ int main()
 		lightingShader.setFloat("KD", g_fKD);
 		lightingShader.setFloat("KS", g_fKS);
 
-		aquarium.Render(lightingShader, *pCamera);
+		// Render opaque objects first (e.g., bottom)
+		
+		glDepthMask(GL_TRUE),
+			glDisable(GL_CULL_FACE),
+			aquarium.RenderBottom(lightingShader, *pCamera),
+			glDepthMask(GL_FALSE),
+			aquarium.RenderGlass(lightingShader, *pCamera),
+			aquarium.RenderWater(waterShader, *pCamera, glfwGetTime(), texturePath),
+			glDepthMask(GL_TRUE);
+
+	
+
 
 
 		lightingWithTextureShader.use();
@@ -590,7 +771,7 @@ int main()
 
 		lightingWithTextureShader.setMat4("projection", pCamera->GetProjectionMatrix());
 		lightingWithTextureShader.setMat4("view", pCamera->GetViewMatrix());
-		
+
 		//glm::mat4 piratModel = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, 0.8f, 0.0f)); // Ridică peștele
 		//piratModel = glm::scale(piratModel, glm::vec3(5.0f)); // Ajustează dimensiunea peștelui
 
@@ -610,7 +791,7 @@ int main()
 
 		//Ajustare dimensiune
 		piratModel = glm::scale(piratModel, glm::vec3(5.0f));*/
-		
+
 		float angleFish1 = glm::radians((float)currentFrame * 50.0f); // Unghi în funcție de timp
 		float radiusFish1 = 2.0f; // Raza cercului pentru primul pește
 
@@ -638,8 +819,8 @@ int main()
 		lightingWithTextureShader.setMat4("model", fish1Model);
 		piratObjModel.Draw(lightingWithTextureShader);
 
-		
-		
+
+
 		// Actualizează poziția peștelui
 		linearFishPosition += linearFishDirection * (float)(deltaTime * 1.0f); // Viteză constantă
 
@@ -691,7 +872,7 @@ int main()
 		piratObjModel.Draw(lightingWithTextureShader);
 
 
-		
+
 		// Desenează acvariul transparent
 
 

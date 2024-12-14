@@ -15,15 +15,15 @@ uniform sampler2D texture_normal1;
 
 void main()
 {
-	 // simple color blending
+ // simple color blending
     vec3 texColor = texture(texture_diffuse1, TexCoords).rgb;
-	
-	 // ambient
-    float ambientStrength = 0.3;
+
+ // ambient
+    float ambientStrength = 0.8;
     vec3 ambient = ambientStrength * lightColor;
-  	
+  
     // diffuse
-	float diffuseStrength = 0.5;
+    float diffuseStrength = 0.5;
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(lightPos - FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
