@@ -21,7 +21,6 @@
 #include "Model.h"
 #include <stb_image.h>
 
-
 #pragma comment (lib, "glfw3dll.lib")
 #pragma comment (lib, "glew32.lib")
 #pragma comment (lib, "OpenGL32.lib")
@@ -29,7 +28,6 @@
 
 const unsigned int SCR_WIDTH = 1900;
 const unsigned int SCR_HEIGHT = 1800;
-
 
 glm::vec3 linearFishPosition(0.0f, 0.8f, 0.0f); // Poziția inițială a peștelui
 glm::vec3 linearFishDirection(1.0f, 0.0f, 0.0f); // Direcția inițială (merge pe axa x)
@@ -290,7 +288,7 @@ protected:
 class Aquarium
 {
 public:
-	unsigned int VBO1, VAO1, VBO2, VAO2,VBO3,VAO3;
+	unsigned int VBO1, VAO1, VBO2, VAO2,VBO3,VAO3,VAO4,VBO4;
 
 	Aquarium()
 	{
@@ -361,10 +359,39 @@ public:
 		glBindVertexArray(VAO3);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		glBindVertexArray(0);
+
+		// Clean up texture after rendering (optional, prevents memory leaks)
+		glDeleteTextures(1, &textureID);
+	}
+
+	void RenderCuboid(Shader& shader, const Camera& camera)
+	{
+		shader.use();
+		shader.setMat4("projection", camera.GetProjectionMatrix());
+		shader.setMat4("view", camera.GetViewMatrix());
+
+		// Set the hardcoded color for the cuboid
+		glm::vec3 cuboidColor(0.96f, 0.87f, 0.70f); // Light brown color
+		shader.SetVec3("objectColor", cuboidColor.x, cuboidColor.y, cuboidColor.z);
+
+		// Model transformations: translate and scale the cuboid
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(0.0f, -1.0f, 0.0f)); // Position the cuboid
+		model = glm::scale(model, glm::vec3(2.5f, 1.54f, 3.0f));     // Scale the cuboid
+		shader.setMat4("model", model);
+
+		// Bind the VAO and draw the cuboid
+		glBindVertexArray(VAO4); // Assuming VAO4 is initialized for the cuboid
+		glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube
+		glBindVertexArray(0);
 	}
 
 
+
+
+
 private:
+	
 	void InitializeBuffers()
 	{
 		// First cube (inner part)
@@ -564,6 +591,81 @@ private:
 		glBindVertexArray(0);
 	}
 
+
+	void InitializesandBuffers()
+	{
+		float lightBrownCuboidVertices[] = {
+			// Positions             // Normals
+			// Bottom Face
+			-0.5f, -0.7f, -0.5f,     0.0f, -1.0f,  0.0f,
+			 0.5f, -0.7f, -0.5f,     0.0f, -1.0f,  0.0f,
+			 0.5f, -0.7f,  0.5f,     0.0f, -1.0f,  0.0f,
+			 0.5f, -0.7f,  0.5f,     0.0f, -1.0f,  0.0f,
+			-0.5f, -0.7f,  0.5f,     0.0f, -1.0f,  0.0f,
+			-0.5f, -0.7f, -0.5f,     0.0f, -1.0f,  0.0f,
+
+			// Top Face
+			-0.5f, -0.6f, -0.5f,     0.0f,  1.0f,  0.0f,
+			 0.5f, -0.6f, -0.5f,     0.0f,  1.0f,  0.0f,
+			 0.5f, -0.6f,  0.5f,     0.0f,  1.0f,  0.0f,
+			 0.5f, -0.6f,  0.5f,     0.0f,  1.0f,  0.0f,
+			-0.5f, -0.6f,  0.5f,     0.0f,  1.0f,  0.0f,
+			-0.5f, -0.6f, -0.5f,     0.0f,  1.0f,  0.0f,
+
+			// Front Face
+			-0.5f, -0.7f,  0.5f,     0.0f,  0.0f,  1.0f,
+			 0.5f, -0.7f,  0.5f,     0.0f,  0.0f,  1.0f,
+			 0.5f, -0.6f,  0.5f,     0.0f,  0.0f,  1.0f,
+			 0.5f, -0.6f,  0.5f,     0.0f,  0.0f,  1.0f,
+			-0.5f, -0.6f,  0.5f,     0.0f,  0.0f,  1.0f,
+			-0.5f, -0.7f,  0.5f,     0.0f,  0.0f,  1.0f,
+
+			// Back Face
+			-0.5f, -0.7f, -0.5f,     0.0f,  0.0f, -1.0f,
+			 0.5f, -0.7f, -0.5f,     0.0f,  0.0f, -1.0f,
+			 0.5f, -0.6f, -0.5f,     0.0f,  0.0f, -1.0f,
+			 0.5f, -0.6f, -0.5f,     0.0f,  0.0f, -1.0f,
+			-0.5f, -0.6f, -0.5f,     0.0f,  0.0f, -1.0f,
+			-0.5f, -0.7f, -0.5f,     0.0f,  0.0f, -1.0f,
+
+			// Left Face
+			-0.5f, -0.7f, -0.5f,    -1.0f,  0.0f,  0.0f,
+			-0.5f, -0.7f,  0.5f,    -1.0f,  0.0f,  0.0f,
+			-0.5f, -0.6f,  0.5f,    -1.0f,  0.0f,  0.0f,
+			-0.5f, -0.6f,  0.5f,    -1.0f,  0.0f,  0.0f,
+			-0.5f, -0.6f, -0.5f,    -1.0f,  0.0f,  0.0f,
+			-0.5f, -0.7f, -0.5f,    -1.0f,  0.0f,  0.0f,
+
+			// Right Face
+			 0.5f, -0.7f, -0.5f,     1.0f,  0.0f,  0.0f,
+			 0.5f, -0.7f,  0.5f,     1.0f,  0.0f,  0.0f,
+			 0.5f, -0.6f,  0.5f,     1.0f,  0.0f,  0.0f,
+			 0.5f, -0.6f,  0.5f,     1.0f,  0.0f,  0.0f,
+			 0.5f, -0.6f, -0.5f,     1.0f,  0.0f,  0.0f,
+			 0.5f, -0.7f, -0.5f,     1.0f,  0.0f,  0.0f,
+		};
+
+		glGenVertexArrays(1, &VAO4);
+		glGenBuffers(1, &VBO4);
+		
+
+		// Bind VAO and VBO
+		glBindVertexArray(VAO4);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO4);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(lightBrownCuboidVertices), lightBrownCuboidVertices, GL_STATIC_DRAW);
+
+		// Set vertex attribute pointers
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0); // Positions
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); // Normals
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); // Texture Coords
+		glEnableVertexAttribArray(2);
+
+		// Unbind VAO
+		glBindVertexArray(0);
+	}
+
 	void Cleanup()
 	{
 		glDeleteVertexArrays(1, &VAO1);
@@ -573,6 +675,7 @@ private:
 		glDeleteVertexArrays(1, &VAO3);
 		glDeleteBuffers(1, &VBO3);
 	}
+
 };
 
 
@@ -650,6 +753,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 	}
 }
+void OpenGLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+{
+	std::cerr << "OpenGL Debug Message: " << message << std::endl;
+}
+
 
 
 int main()
@@ -714,10 +822,7 @@ int main()
 	Model piratObjModel(piratObjFileName, false);
 
 	std::string texturePath = (currentPath + "\\Models\\water.jpg");
-
-
 	
-
 
 	// render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -748,16 +853,18 @@ int main()
 		lightingShader.setFloat("KS", g_fKS);
 
 		// Render opaque objects first (e.g., bottom)
-		
-		glDepthMask(GL_TRUE),
-			glDisable(GL_CULL_FACE),
-			aquarium.RenderBottom(lightingShader, *pCamera),
-			glDepthMask(GL_FALSE),
-			aquarium.RenderGlass(lightingShader, *pCamera),
-			aquarium.RenderWater(waterShader, *pCamera, glfwGetTime(), texturePath),
-			glDepthMask(GL_TRUE);
 
-	
+		
+
+		glDepthMask(GL_TRUE);
+		glDisable(GL_CULL_FACE);
+		aquarium.RenderBottom(lightingShader, *pCamera);
+		aquarium.RenderCuboid(lightingShader, *pCamera);
+		glDepthMask(GL_FALSE);
+		aquarium.RenderGlass(lightingShader, *pCamera);
+		aquarium.RenderWater(waterShader, *pCamera, glfwGetTime(), texturePath);
+		glDepthMask(GL_TRUE);
+
 
 
 
@@ -798,7 +905,7 @@ int main()
 		// Poziția peștelui pe cerc
 		glm::vec3 positionFish1(
 			radiusFish1 * glm::cos(angleFish1),  // x
-			0.8f,                                // y (înălțimea fixă)
+			0.2f,                                // y (înălțimea fixă)
 			radiusFish1 * glm::sin(angleFish1)   // z
 		);
 
@@ -870,6 +977,8 @@ int main()
 		// Setează matricea în shader și desenează peștele
 		lightingWithTextureShader.setMat4("model", linearFishModel);
 		piratObjModel.Draw(lightingWithTextureShader);
+
+
 
 
 
