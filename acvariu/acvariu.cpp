@@ -1,6 +1,8 @@
 ﻿#include <Windows.h>
 #include <locale>
 #include <codecvt>
+#include <cmath>
+
 
 #include <stdlib.h> // necesare pentru citirea shader-elor
 #include <stdio.h>
@@ -34,6 +36,10 @@ glm::vec3 linearFishDirection(1.0f, 0.0f, 0.0f); // Direcția inițială (merge 
 float aquariumBoundary = 3.0f; // Dimensiunea acvariului
 bool isSinusoidal = false; // Flag pentru rotație sinusoidală
 float sinusoidalTime = 0.0f; // Timp pentru rotație sinusoidală
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 
 
@@ -289,6 +295,7 @@ class Aquarium
 {
 public:
 	unsigned int VBO1, VAO1, VBO2, VAO2,VBO3,VAO3,VAO4,VBO4;
+	unsigned int algaeVAO, algaeVBO;
 
 	Aquarium()
 	{
@@ -385,10 +392,100 @@ public:
 		glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube
 		glBindVertexArray(0);
 	}
+	
+	void RenderAlgae(Shader& shader, const Camera& camera, float time) {
+    shader.use();
+    shader.setMat4("projection", camera.GetProjectionMatrix());
+    shader.setMat4("view", camera.GetViewMatrix());
+    shader.setFloat("time", time);
+
+    glm::vec3 algaeBasePosition(0.0f, -1.78f, 0.0f); // Place algae at the bottom
+    int numAlgae = 10; // Number of algae in the bouquet
+    float swaySpeed = 2.0f; // Speed of sway animation
+    float swayAmplitude = glm::radians(5.0f); // Amplitude of sway
+    float spreadAngle = glm::radians(360.0f / numAlgae); // Angle between algae
+
+    for (int i = 0; i < numAlgae; ++i) {
+        // Compute rotation angle for each algae
+        float angle = i * spreadAngle;
+
+        // Sway animation for natural motion
+        float sway = swayAmplitude * glm::sin(time * swaySpeed + i);
+
+        // Transformations
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, algaeBasePosition); // Start at the bottom
+        model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate around Y-axis
+        model = glm::rotate(model, glm::radians(30.0f) + sway, glm::vec3(1.0f, 0.0f, 0.0f)); // Tilt outward
+        model = glm::scale(model, glm::vec3(0.1f, 1.0f, 0.1f)); // Scale algae
+
+        // Set shader uniforms
+        shader.setMat4("model", model);
+        shader.SetVec3("objectColor", 0.0f, 0.8f, 0.2f); // Green algae
+        shader.SetVec3("viewPos", camera.GetPosition());
+        shader.SetVec3("lightColor", 1.0f, 1.0f, 1.0f);
+
+        // Draw algae
+        glBindVertexArray(algaeVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, (20 + 1) * 2);
+        glBindVertexArray(0);
+    }
+}
 
 
 
 
+
+
+
+	void InitializeAlgaeBuffer() {
+		const int slices = 20; // Number of slices around the cylinder
+		const float radius = 0.1f; // Radius of the cylinder
+		const float height = 1.0f; // Height of the cylinder
+
+		std::vector<float> vertices;
+
+		// Generate vertices for the cylinder
+		for (int i = 0; i <= slices; ++i) {
+			float angle = i * 2.0f * M_PI / slices;
+			float x = radius * cos(angle);
+			float z = radius * sin(angle);
+
+			// Bottom cap
+			vertices.push_back(x);  // Position
+			vertices.push_back(0.0f);
+			vertices.push_back(z);
+			vertices.push_back(0.0f); // Normal
+			vertices.push_back(-1.0f);
+			vertices.push_back(0.0f);
+
+			// Top cap
+			vertices.push_back(x);  // Position
+			vertices.push_back(height);
+			vertices.push_back(z);
+			vertices.push_back(0.0f); // Normal
+			vertices.push_back(1.0f);
+			vertices.push_back(0.0f);
+		}
+
+		// Generate and bind VAO and VBO
+		glGenVertexArrays(1, &algaeVAO);
+		glGenBuffers(1, &algaeVBO);
+
+		glBindVertexArray(algaeVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, algaeVBO);
+		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+		// Position attribute
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+
+		// Normal attribute
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+		glEnableVertexAttribArray(1);
+
+		glBindVertexArray(0); // Unbind VAO
+	}
 
 private:
 	
@@ -665,7 +762,7 @@ private:
 		// Unbind VAO
 		glBindVertexArray(0);
 	}
-
+	
 	void Cleanup()
 	{
 		glDeleteVertexArrays(1, &VAO1);
@@ -814,6 +911,7 @@ int main()
 	Shader lightingShader("PhongLight.vs", "PhongLight.fs");
 	Shader lampShader("Lamp.vs", "Lamp.fs");
 	Shader waterShader("Water.vs", "Water.fs");
+	Shader algaeShader("Algae.vs", "Algae.fs");
 	Shader lightingWithTextureShader("PhongLightWithTexture.vs", "PhongLightWithTexture.fs");\
 	Aquarium aquarium;
 
@@ -860,10 +958,15 @@ int main()
 		glDisable(GL_CULL_FACE);
 		aquarium.RenderBottom(lightingShader, *pCamera);
 		aquarium.RenderCuboid(lightingShader, *pCamera);
+		aquarium.InitializeAlgaeBuffer();
+		aquarium.RenderAlgae(algaeShader, *pCamera, currentFrame);
 		glDepthMask(GL_FALSE);
 		aquarium.RenderGlass(lightingShader, *pCamera);
 		aquarium.RenderWater(waterShader, *pCamera, glfwGetTime(), texturePath);
 		glDepthMask(GL_TRUE);
+
+		
+		
 
 
 
