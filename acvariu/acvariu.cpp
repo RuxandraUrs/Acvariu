@@ -113,6 +113,30 @@ void OpenGLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum se
 
 
 
+void CheckBoundaryCollision(glm::vec3& position, glm::vec3& direction, float boundary) {
+	if (position.x > boundary || position.x < -boundary) {
+		direction.x = -direction.x;
+		position.x = glm::clamp(position.x, -boundary, boundary);
+	}
+	if (position.z > boundary || position.z < -boundary) {
+		direction.z = -direction.z;
+		position.z = glm::clamp(position.z, -boundary, boundary);
+	}
+}
+
+bool IsColliding(const glm::vec3& pos1, const glm::vec3& pos2, float minDistance) {
+	return glm::distance(pos1, pos2) < minDistance;
+}
+
+void ResolveCollision(glm::vec3& pos1, glm::vec3& pos2, glm::vec3& dir1, glm::vec3& dir2) {
+	glm::vec3 displacement = glm::normalize(pos1 - pos2) * 0.05f; // Push fishes apart slightly
+	pos1 += displacement;
+	pos2 -= displacement;
+	dir1 = glm::reflect(dir1, glm::normalize(displacement));
+	dir2 = glm::reflect(dir2, glm::normalize(-displacement));
+}
+
+
 int main()
 {
 	// glfw: initialize and configure
@@ -147,7 +171,7 @@ int main()
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_DEPTH_TEST);
-	
+
 
 
 
@@ -168,15 +192,15 @@ int main()
 	Shader lampShader("Lamp.vs", "Lamp.fs");
 	Shader waterShader("Water.vs", "Water.fs");
 	Shader algaeShader("Algae.vs", "Algae.fs");
-	Shader lightingWithTextureShader("PhongLightWithTexture.vs", "PhongLightWithTexture.fs");\
-	Aquarium aquarium;
+	Shader lightingWithTextureShader("PhongLightWithTexture.vs", "PhongLightWithTexture.fs"); \
+		Aquarium aquarium;
 
 
 	std::string piratObjFileName = (currentPath + "\\Models\\Fish\\Fish.obj");
 	Model piratObjModel(piratObjFileName, false);
 
 	std::string texturePath = (currentPath + "\\Models\\water.jpg");
-	
+
 
 	// render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -187,7 +211,7 @@ int main()
 
 		glClearColor(0.68f, 0.85f, 0.90f, 1.0f); // RGB pentru albastru deschis
 
-		
+
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -208,7 +232,7 @@ int main()
 
 		// Render opaque objects first (e.g., bottom)
 
-		
+
 
 		glDepthMask(GL_TRUE);
 		glDisable(GL_CULL_FACE);
@@ -257,8 +281,8 @@ int main()
 		aquarium.RenderWater(waterShader, *pCamera, glfwGetTime(), texturePath);
 		glDepthMask(GL_TRUE);
 
-		
-		
+
+
 
 
 
@@ -294,84 +318,44 @@ int main()
 		//Ajustare dimensiune
 		piratModel = glm::scale(piratModel, glm::vec3(5.0f));*/
 
-		float angleFish1 = glm::radians((float)currentFrame * 50.0f); // Unghi în funcție de timp
-		float radiusFish1 = 2.0f; // Raza cercului pentru primul pește
-
-		// Poziția peștelui pe cerc
-		glm::vec3 positionFish1(
-			radiusFish1 * glm::cos(angleFish1),  // x
-			0.2f,                                // y (înălțimea fixă)
-			radiusFish1 * glm::sin(angleFish1)   // z
-		);
-
-		// Direcția tangentială pentru orientare
-		glm::vec3 directionFish1(
-			-glm::sin(angleFish1),  // x (tangenta pe x)
-			0.0f,                   // y (nu se mișcă pe verticală)
-			glm::cos(angleFish1)    // z (tangenta pe z)
-		);
-
-		// Construim matricea pentru pește
-		glm::mat4 fish1Model = glm::mat4(1.0f);
-		fish1Model = glm::translate(fish1Model, positionFish1); // Translație
-		fish1Model = glm::rotate(fish1Model, glm::atan(directionFish1.x, directionFish1.z), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotește peștele după direcție
-		fish1Model = glm::scale(fish1Model, glm::vec3(5.0f)); // Scalare
-
-		// Desenează primul pește
-		lightingWithTextureShader.setMat4("model", fish1Model);
-		piratObjModel.Draw(lightingWithTextureShader);
+		// Fish parameters
+		// Fish parameters
+		// Fish parameters
+		// Fish movement parameters
+		// Fish parameters for elliptical movement
 
 
+		const int fishCount = 2; // Number of fishes moving in ellipses
+		float fishSpeeds[fishCount] = { 0.5f, 0.3f }; // Speed of rotation for each fish
+		float fishRadiiX[fishCount] = { 2.0f, 1.5f }; // Horizontal radius (a)
+		float fishRadiiZ[fishCount] = { 1.0f, 0.8f }; // Vertical radius (b)
+		float fishHeights[fishCount] = { 0.0f, 0.3f }; // Heights for each fish
 
-		// Actualizează poziția peștelui
-		linearFishPosition += linearFishDirection * (float)(deltaTime * 1.0f); // Viteză constantă
+		// Fish rendering loop
+		for (int i = 0; i < fishCount; i++) {
+			// Compute the angle based on time and speed
+			float angle = (float)glfwGetTime() * fishSpeeds[i];
 
-		// Verifică coliziunea cu marginile acvariului
-		if (!isSinusoidal &&
-			(linearFishPosition.x > aquariumBoundary || linearFishPosition.x < -aquariumBoundary)) {
-			linearFishDirection.x = -linearFishDirection.x; // Inversează direcția pe x
-			isSinusoidal = true; // Începe rotația sinusoidală
-			sinusoidalTime = 0.0f; // Resetează timpul sinusoidal
-		}
-		if (!isSinusoidal &&
-			(linearFishPosition.z > aquariumBoundary || linearFishPosition.z < -aquariumBoundary)) {
-			linearFishDirection.z = -linearFishDirection.z; // Inversează direcția pe z
-			isSinusoidal = true; // Începe rotația sinusoidală
-			sinusoidalTime = 0.0f; // Resetează timpul sinusoidal
+			// Calculate position using ellipse equations
+			float x = fishRadiiX[i] * cos(angle);
+			float z = fishRadiiZ[i] * sin(angle);
+			glm::vec3 fishPosition(x, fishHeights[i], z);
+
+			// Tangent direction for rotation
+			glm::vec3 fishDirection(-sin(angle), 0.0f, cos(angle));
+			float fishAngle = glm::atan(fishDirection.x, fishDirection.z);
+
+			// Apply transformations: translate, rotate, scale
+			glm::mat4 fishModel = glm::mat4(1.0f);
+			fishModel = glm::translate(fishModel, fishPosition);
+			fishModel = glm::rotate(fishModel, fishAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+			fishModel = glm::scale(fishModel, glm::vec3(5.0f)); // Scale fish size
+
+			// Set shader uniforms and render fish model
+			lightingWithTextureShader.setMat4("model", fishModel);
+			piratObjModel.Draw(lightingWithTextureShader);
 		}
 
-		// Aplica rotația sinusoidală dacă este activă
-		glm::mat4 rotation = glm::mat4(1.0f); // Identitate
-		if (isSinusoidal) {
-			sinusoidalTime += (float)(deltaTime * 2.0f); // Crește timpul sinusoidal
-
-			// Aplica rotația sinusoidală
-			float angle = glm::sin(sinusoidalTime * glm::pi<float>()) * glm::radians(45.0f); // Amplitudine de 45°
-			rotation = glm::rotate(rotation, angle, glm::vec3(0.0f, 1.0f, 0.0f)); // Rotație pe axa Y
-
-			// Dacă rotația este completă, oprește sinusoidalul
-			if (sinusoidalTime >= 1.0f) {
-				isSinusoidal = false; // Oprește rotația sinusoidală
-			}
-		}
-
-		// Creează modelul peștelui pentru această mișcare
-		glm::mat4 linearFishModel = glm::translate(glm::mat4(1.0f), linearFishPosition); // Translație
-		linearFishModel *= glm::lookAt(
-			glm::vec3(0.0f),                // Poziția peștelui (translația e separată)
-			linearFishDirection,            // Direcția de mișcare
-			glm::vec3(0.0f, 1.0f, 0.0f)     // Vectorul „up”
-		);
-
-		// Adaugă rotația sinusoidală
-		linearFishModel *= rotation;
-
-		// Ajustează dimensiunea
-		linearFishModel = glm::scale(linearFishModel, glm::vec3(5.0f));
-
-		// Setează matricea în shader și desenează peștele
-		lightingWithTextureShader.setMat4("model", linearFishModel);
-		piratObjModel.Draw(lightingWithTextureShader);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -380,14 +364,14 @@ int main()
 	Cleanup();
 
 
-	
+
 	glfwTerminate();
 	return 0;
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-	
+
 	pCamera->Reshape(width, height);
 }
 

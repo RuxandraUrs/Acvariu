@@ -7,6 +7,7 @@ uniform vec3 viewPos;    // Camera position
 uniform vec3 lightColor; // Light color
 uniform vec3 objectColor; // Base water color
 uniform sampler2D texture1; // Water texture
+uniform float time;       // Time uniform for texture scrolling
 
 out vec4 FragColor;
 
@@ -29,9 +30,13 @@ void main()
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16);
     vec3 specular = specularStrength * spec * lightColor;
 
-    // Sample the texture
-    vec2 texCoord = FragPos.xz * 0.1; // Adjust texture scaling for a natural look
-    vec3 textureColor = texture(texture1, texCoord).rgb;
+    // Slower scrolling texture coordinates
+    vec2 texCoord = FragPos.xz * 0.1;  // Base texture scaling
+    vec2 uvOffset = vec2(0.0, time * 0.02); // Reduced speed: 0.02 instead of 0.1
+    vec2 uv = texCoord + uvOffset;
+
+    // Sample the texture with scrolling UVs
+    vec3 textureColor = texture(texture1, uv).rgb;
 
     // Combine results
     vec3 finalColor = mix(objectColor, textureColor, 0.7); // Blend base color and texture
