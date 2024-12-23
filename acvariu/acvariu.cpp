@@ -226,6 +226,58 @@ int main()
 	std::string piratObjFileName = (currentPath + "\\Models\\Fish\\Fish.obj");
 	Model piratObjModel(piratObjFileName, false);
 
+	std::string grassPath = (currentPath + "\\Models\\Grass\\grass.obj");
+	Model grassModel(grassPath, false);
+
+	// Add this block for generating transformation matrices
+	std::vector<glm::mat4> grassTransforms;
+
+	// Generate transformations for the grass patches
+	const float gridSize = 5.0f; // Floor size
+	const float grassSize = 1.0f; // Size of a single patch
+	const int gridCount = gridSize / grassSize;
+
+	for (int x = 0; x < gridCount; ++x) {
+		for (int z = 0; z < gridCount; ++z) {
+			glm::mat4 transform = glm::mat4(1.0f);
+			transform = glm::translate(transform, glm::vec3(
+				-gridSize / 2.0f + x * grassSize,
+				-1.0f,
+				-gridSize / 2.0f + z * grassSize
+			));
+			transform = glm::scale(transform, glm::vec3(0.5f));
+			grassTransforms.push_back(transform);
+		}
+	}
+
+	// Create instance buffer
+	unsigned int instanceBuffer;
+	glGenBuffers(1, &instanceBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer);
+	glBufferData(GL_ARRAY_BUFFER, grassTransforms.size() * sizeof(glm::mat4), &grassTransforms[0], GL_STATIC_DRAW);
+
+	// Link instance buffer to grass model's VAO
+	for (unsigned int i = 0; i < grassModel.meshes.size(); i++) {
+		glBindVertexArray(grassModel.meshes[i].VAO);
+
+		GLsizei vec4Size = sizeof(glm::vec4);
+		glEnableVertexAttribArray(3);
+		glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)0);
+		glEnableVertexAttribArray(4);
+		glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(1 * vec4Size));
+		glEnableVertexAttribArray(5);
+		glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(2 * vec4Size));
+		glEnableVertexAttribArray(6);
+		glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(3 * vec4Size));
+
+		glVertexAttribDivisor(3, 1);
+		glVertexAttribDivisor(4, 1);
+		glVertexAttribDivisor(5, 1);
+		glVertexAttribDivisor(6, 1);
+
+		glBindVertexArray(0);
+	}
+
 	std::string texturePath = (currentPath + "\\Models\\water.jpg");
 	std::vector<std::string> faces = {
 	currentPath+"\\Models\\Daylight Box_Right.bmp",
@@ -280,7 +332,30 @@ int main()
 		lightingShader.setFloat("KS", g_fKS);
 
 		// Render opaque objects first (e.g., bottom)
-		
+		glm::mat4 grassModelMatrix1 = glm::mat4(1.0f);
+		grassModelMatrix1 = glm::translate(grassModelMatrix1, glm::vec3(-0.5f, -1.8f, 0.0f)); // Position of the first grass
+		grassModelMatrix1 = glm::scale(grassModelMatrix1, glm::vec3(6.5f, 6.0f, 7.0f));       // Scale of the first grass
+
+		lightingWithTextureShader.use();
+		lightingWithTextureShader.setMat4("model", grassModelMatrix1);
+		grassModel.Draw(lightingWithTextureShader);
+
+		// Render the second grass object
+		glm::mat4 grassModelMatrix2 = glm::mat4(1.0f);
+		grassModelMatrix2 = glm::translate(grassModelMatrix2, glm::vec3(1.7f, -1.8f, 0.0f)); // Position of the second grass
+		grassModelMatrix2 = glm::scale(grassModelMatrix2, glm::vec3(6.0f, 6.0f, 6.0f));      // Scale of the second grass
+
+		lightingWithTextureShader.use();
+		lightingWithTextureShader.setMat4("model", grassModelMatrix2);
+		grassModel.Draw(lightingWithTextureShader);
+
+		glm::mat4 grassModelMatrix3 = glm::mat4(1.0f);
+		grassModelMatrix3 = glm::translate(grassModelMatrix3, glm::vec3(1.7f, -1.8f, 0.43f)); // Position of the second grass
+		grassModelMatrix3 = glm::scale(grassModelMatrix3, glm::vec3(5.5f, 5.0f, 5.0f));      // Scale of the second grass
+
+		lightingWithTextureShader.use();
+		lightingWithTextureShader.setMat4("model", grassModelMatrix3);
+		grassModel.Draw(lightingWithTextureShader);
 
 		glDepthMask(GL_TRUE);
 		glDisable(GL_CULL_FACE);
