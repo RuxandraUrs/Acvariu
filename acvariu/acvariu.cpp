@@ -15,6 +15,7 @@
 #include "Model.h"
 #include "Camera.h"
 #include "Aquarium.h"
+#include "Skybox.h"
 
 #pragma comment (lib, "glfw3dll.lib")
 #pragma comment (lib, "glew32.lib")
@@ -111,7 +112,32 @@ void OpenGLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum se
 	std::cerr << "OpenGL Debug Message: " << message << std::endl;
 }
 
+unsigned int LoadCubemap(std::vector<std::string> faces) {
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
+	int width, height, nrChannels;
+	for (unsigned int i = 0; i < faces.size(); i++) {
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+		if (data) {
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+				0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			stbi_image_free(data);
+		}
+		else {
+			std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+			stbi_image_free(data);
+		}
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
+}
 
 void CheckBoundaryCollision(glm::vec3& position, glm::vec3& direction, float boundary) {
 	if (position.x > boundary || position.x < -boundary) {
@@ -192,6 +218,7 @@ int main()
 	Shader lampShader("Lamp.vs", "Lamp.fs");
 	Shader waterShader("Water.vs", "Water.fs");
 	Shader algaeShader("Algae.vs", "Algae.fs");
+	Shader skyboxShader("Skybox.vs", "Skybox.fs");
 	Shader lightingWithTextureShader("PhongLightWithTexture.vs", "PhongLightWithTexture.fs"); \
 		Aquarium aquarium;
 
@@ -200,7 +227,16 @@ int main()
 	Model piratObjModel(piratObjFileName, false);
 
 	std::string texturePath = (currentPath + "\\Models\\water.jpg");
-
+	std::vector<std::string> faces = {
+	currentPath+"\\Models\\Daylight Box_Right.bmp",
+	currentPath + "\\Models\\Daylight Box_Left.bmp",
+	currentPath + "\\Models\\Daylight Box_Top.bmp",
+	currentPath + "\\Models\\Daylight Box_Bottom.bmp",
+	currentPath + "\\Models\\Daylight Box_Front.bmp",
+	currentPath+"\\Models\\Daylight Box_Back.bmp"
+	};
+	Skybox skybox(faces);
+	
 
 	// render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -212,13 +248,26 @@ int main()
 		glClearColor(0.68f, 0.85f, 0.90f, 1.0f); // RGB pentru albastru deschis
 
 
-
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		float lightSpeed = currentFrame * 100.f;
 		float lightRadius = 5.f;
 		lightPos.x = lightRadius * glm::sin(glm::radians(lightSpeed));
 		lightPos.z = lightRadius * glm::cos(glm::radians(lightSpeed));
+		
+
+		glDepthFunc(GL_LEQUAL); // Change depth function to allow skybox depth
+		skyboxShader.use();
+
+		// Pass the projection and modified view matrix to the skybox shader
+		glm::mat4 viewMatrix = glm::mat4(glm::mat3(pCamera->GetViewMatrix())); // Remove translation
+		skyboxShader.setMat4("view", viewMatrix);
+		skyboxShader.setMat4("projection", pCamera->GetProjectionMatrix());
+
+		// Render the skybox
+		skybox.Render(skyboxShader, pCamera->GetViewMatrix(), pCamera->GetProjectionMatrix());
+
+		glDepthFunc(GL_LESS);
 
 		lightingShader.use();
 		lightingShader.setFloat("transparency", 0.3f);
@@ -231,8 +280,7 @@ int main()
 		lightingShader.setFloat("KS", g_fKS);
 
 		// Render opaque objects first (e.g., bottom)
-
-
+		
 
 		glDepthMask(GL_TRUE);
 		glDisable(GL_CULL_FACE);
@@ -355,6 +403,7 @@ int main()
 			lightingWithTextureShader.setMat4("model", fishModel);
 			piratObjModel.Draw(lightingWithTextureShader);
 		}
+
 
 
 		glfwSwapBuffers(window);
