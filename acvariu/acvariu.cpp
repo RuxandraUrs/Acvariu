@@ -489,11 +489,30 @@ int main()
 		lightingShader.setFloat("KD", g_fKD);
 		lightingShader.setFloat("KS", g_fKS);
 
-		// Render opaque objects (e.g., grass)
-		glm::mat4 grassModelMatrix1 = glm::translate(glm::mat4(1.0f), glm::vec3(-0.5f, -1.77f, 0.0f));
-		grassModelMatrix1 = glm::scale(grassModelMatrix1, glm::vec3(6.5f, 6.0f, 7.0f));
+		/// Render opaque objects first (e.g., bottom)
+		glm::mat4 grassModelMatrix1 = glm::mat4(1.0f);
+		grassModelMatrix1 = glm::translate(grassModelMatrix1, glm::vec3(-0.5f, -1.8f, 0.0f)); // Position of the first grass
+		grassModelMatrix1 = glm::scale(grassModelMatrix1, glm::vec3(6.5f, 6.0f, 7.0f));       // Scale of the first grass
+
 		lightingWithTextureShader.use();
 		lightingWithTextureShader.setMat4("model", grassModelMatrix1);
+		grassModel.Draw(lightingWithTextureShader);
+
+		// Render the second grass object
+		glm::mat4 grassModelMatrix2 = glm::mat4(1.0f);
+		grassModelMatrix2 = glm::translate(grassModelMatrix2, glm::vec3(1.7f, -1.8f, 0.0f)); // Position of the second grass
+		grassModelMatrix2 = glm::scale(grassModelMatrix2, glm::vec3(6.0f, 6.0f, 6.0f));      // Scale of the second grass
+
+		lightingWithTextureShader.use();
+		lightingWithTextureShader.setMat4("model", grassModelMatrix2);
+		grassModel.Draw(lightingWithTextureShader);
+
+		glm::mat4 grassModelMatrix3 = glm::mat4(1.0f);
+		grassModelMatrix3 = glm::translate(grassModelMatrix3, glm::vec3(1.7f, -1.8f, 0.43f)); // Position of the second grass
+		grassModelMatrix3 = glm::scale(grassModelMatrix3, glm::vec3(5.5f, 5.0f, 5.0f));      // Scale of the second grass
+
+		lightingWithTextureShader.use();
+		lightingWithTextureShader.setMat4("model", grassModelMatrix3);
 		grassModel.Draw(lightingWithTextureShader);
 
 		glDepthMask(GL_TRUE);
