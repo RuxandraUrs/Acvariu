@@ -2,6 +2,7 @@
 #include <locale>
 #include <codecvt>
 #include <cmath>
+#include <ctime>
 
 
 #include <GL/glew.h>
@@ -37,6 +38,8 @@ GLuint ProjMatrixLocation, ViewMatrixLocation, WorldMatrixLocation;
 Camera* pCamera = nullptr;
 float g_fKA = 0.5, g_fKD = 0.5f, g_fKS = 0.5;
 int g_fN = 2;
+
+
 
 void Cleanup()
 {
@@ -222,6 +225,72 @@ int main()
 	Shader lightingWithTextureShader("PhongLightWithTexture.vs", "PhongLightWithTexture.fs"); \
 		Aquarium aquarium;
 
+	//test
+	unsigned int lightVAO, VBO;
+	// Use a small cube to represent the light source
+	float vertices[] = {
+		// Front face
+		-1.0f, -1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		// Back face
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+
+		// Left face
+		-1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+
+		// Right face
+		 1.0f,  1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f,  1.0f,
+
+		 // Top face
+		 -1.0f,  1.0f, -1.0f,
+		 -1.0f,  1.0f,  1.0f,
+		  1.0f,  1.0f,  1.0f,
+		  1.0f,  1.0f,  1.0f,
+		  1.0f,  1.0f, -1.0f,
+		 -1.0f,  1.0f, -1.0f,
+
+		 // Bottom face
+		 -1.0f, -1.0f, -1.0f,
+		  1.0f, -1.0f, -1.0f,
+		  1.0f, -1.0f,  1.0f,
+		  1.0f, -1.0f,  1.0f,
+		 -1.0f, -1.0f,  1.0f,
+		 -1.0f, -1.0f, -1.0f,
+	};
+
+	
+	glGenVertexArrays(1, &lightVAO);
+	glGenBuffers(1, &VBO);
+
+	glBindVertexArray(lightVAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glBindVertexArray(0);
 
 	std::string piratObjFileName = (currentPath + "\\Models\\Fish\\Fish.obj");
 	Model piratObjModel(piratObjFileName, false);
@@ -279,7 +348,7 @@ int main()
 	}
 
 	std::string texturePath = (currentPath + "\\Models\\water.jpg");
-	std::vector<std::string> faces = {
+	std::vector<std::string> daySkyboxFaces = {
 	currentPath+"\\Models\\Daylight Box_Right.bmp",
 	currentPath + "\\Models\\Daylight Box_Left.bmp",
 	currentPath + "\\Models\\Daylight Box_Top.bmp",
@@ -287,8 +356,20 @@ int main()
 	currentPath + "\\Models\\Daylight Box_Front.bmp",
 	currentPath+"\\Models\\Daylight Box_Back.bmp"
 	};
-	Skybox skybox(faces);
+	std::vector<std::string> nightSkyboxFaces = {
+	currentPath+"\\Models\\space_rt.png", // Right
+	currentPath + "\\Models\\space_lf.png", // Left
+	currentPath + "\\Models\\space_up.png", // Top
+	currentPath + "\\Models\\space_dn.png", // Bottom
+	currentPath + "\\Models\\space_ft.png", // Front
+	currentPath + "\\Models\\space_bk.png"  // Back
+	};
+
+
+
+	Skybox skybox(daySkyboxFaces);
 	
+
 
 	// render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -297,41 +378,118 @@ int main()
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
-		glClearColor(0.68f, 0.85f, 0.90f, 1.0f); // RGB pentru albastru deschis
-
-
+		// Clear screen
+		glClearColor(0.68f, 0.85f, 0.90f, 1.0f); // RGB for light blue
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		float lightSpeed = currentFrame * 100.f;
-		float lightRadius = 5.f;
-		lightPos.x = lightRadius * glm::sin(glm::radians(lightSpeed));
-		lightPos.z = lightRadius * glm::cos(glm::radians(lightSpeed));
+
+		// Get system time
+		time_t now = time(0);
+		tm localTime;
+		localtime_s(&localTime, &now); // Safe version
+		int hours = localTime.tm_hour;
+		int minutes = localTime.tm_min;
+		int seconds = localTime.tm_sec;
+
+		// Convert to fractional day
+		float timeOfDay = hours + (minutes / 60.0f) + (seconds / 3600.0f);
+
+		// Calculate sun position
+		bool isDaytime = timeOfDay >= 6.0f && timeOfDay < 18.0f;
 		
 
-		glDepthFunc(GL_LEQUAL); // Change depth function to allow skybox depth
-		skyboxShader.use();
+		// Normalize time to range [0, 1] for the 24-hour cycle
+	// Normalize time to range [0, 1] for the 24-hour cycle
+		float timeNormalized = (hours % 24 + (minutes / 60.0f) + (seconds / 3600.0f)) / 24.0f;
 
-		// Pass the projection and modified view matrix to the skybox shader
+		// Define movement bounds and maximum height
+		float sunRangeX = 10.0f;  // Total range of x-movement (left to right)
+		float maxSunHeight = 6.0f; // Maximum height above the aquarium
+
+		// Calculate sun position
+		glm::vec3 sunPosition;
+
+		// Map time to the left-to-right motion
+		float xPosition = -sunRangeX + 2.0f * sunRangeX * timeNormalized;
+
+		if (timeNormalized >= 0.25f && timeNormalized <= 0.75f) {
+			// Daytime: Above the aquarium
+			float daytimeNormalized = (timeNormalized - 0.25f) / 0.5f; // Map to [0, 1]
+			sunPosition = glm::vec3(
+				xPosition,                                   // x: linear motion
+				maxSunHeight * glm::sin(glm::pi<float>() * daytimeNormalized), // y: arc above
+				0.0f                                        // z: remains constant
+			);
+		}
+		else {
+			// Nighttime: Below the aquarium
+			float nighttimeNormalized = (timeNormalized >= 0.75f) ? (timeNormalized - 0.75f) / 0.5f : (timeNormalized + 0.25f) / 0.5f;
+			sunPosition = glm::vec3(
+				xPosition,                                   // x: linear motion
+				-maxSunHeight * glm::abs(glm::sin(glm::pi<float>() * nighttimeNormalized)), // y: arc below
+				0.0f                                        // z: remains constant
+			);
+		}
+
+
+
+
+		float intensity = glm::clamp(glm::abs(sunPosition.y / maxSunHeight), 0.1f, 1.0f);
+		glm::vec3 lightColor = glm::mix(
+			glm::vec3(1.0f, 1.0f, 1.0f),  
+			glm::vec3(1.0f, 1.0f, 1.0f), 
+			intensity
+		);
+
+		// Update shaders
+		lightingShader.use();
+		lightingShader.SetVec3("lightPos", sunPosition);
+		lightingShader.SetVec3("lightColor", lightColor);
+
+		static bool currentIsDaytime = true;
+		
+
+		if (isDaytime != currentIsDaytime) {
+			if (isDaytime) {
+				skybox.ReloadTextures(daySkyboxFaces); // Load daytime textures
+			}
+			else {
+				skybox.ReloadTextures(nightSkyboxFaces); // Load nighttime textures
+			}
+			currentIsDaytime = isDaytime;
+		}
+
+		
+
+		lampShader.use();
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, sunPosition); // Use sunPosition for light cube
+		model = glm::scale(model, glm::vec3(0.05f)); // Adjust cube size
+		lampShader.setMat4("projection", pCamera->GetProjectionMatrix());
+		lampShader.setMat4("view", pCamera->GetViewMatrix());
+		lampShader.setMat4("model", model);
+
+		glBindVertexArray(lightVAO); // Bind light VAO
+		glDrawArrays(GL_TRIANGLES, 0, 36); // Render the cube
+		glBindVertexArray(0);
+	
+		// Render the skybox
+		glDepthFunc(GL_LEQUAL);
+		skyboxShader.use();
 		glm::mat4 viewMatrix = glm::mat4(glm::mat3(pCamera->GetViewMatrix())); // Remove translation
 		skyboxShader.setMat4("view", viewMatrix);
 		skyboxShader.setMat4("projection", pCamera->GetProjectionMatrix());
-
-		// Render the skybox
 		skybox.Render(skyboxShader, pCamera->GetViewMatrix(), pCamera->GetProjectionMatrix());
-
 		glDepthFunc(GL_LESS);
 
+		// Render objects with lighting
 		lightingShader.use();
-		lightingShader.setFloat("transparency", 0.3f);
 		lightingShader.SetVec3("objectColor", 0.7f, 0.7f, 0.7f);
-		lightingShader.SetVec3("lightColor", 1.0f, 1.0f, 1.0f);
-		lightingShader.SetVec3("lightPos", lightPos);
-		lightingShader.SetVec3("viewPos", pCamera->GetPosition());
 		lightingShader.setFloat("KA", g_fKA);
 		lightingShader.setFloat("KD", g_fKD);
 		lightingShader.setFloat("KS", g_fKS);
 
-		// Render opaque objects first (e.g., bottom)
+		/// Render opaque objects first (e.g., bottom)
 		glm::mat4 grassModelMatrix1 = glm::mat4(1.0f);
 		grassModelMatrix1 = glm::translate(grassModelMatrix1, glm::vec3(-0.5f, -1.8f, 0.0f)); // Position of the first grass
 		grassModelMatrix1 = glm::scale(grassModelMatrix1, glm::vec3(6.5f, 6.0f, 7.0f));       // Scale of the first grass
@@ -448,33 +606,26 @@ int main()
 		// Fish parameters for elliptical movement
 
 
-		const int fishCount = 2; // Number of fishes moving in ellipses
-		float fishSpeeds[fishCount] = { 0.5f, 0.3f }; // Speed of rotation for each fish
-		float fishRadiiX[fishCount] = { 2.0f, 1.5f }; // Horizontal radius (a)
-		float fishRadiiZ[fishCount] = { 1.0f, 0.8f }; // Vertical radius (b)
-		float fishHeights[fishCount] = { 0.0f, 0.3f }; // Heights for each fish
+		const int fishCount = 2;
+		float fishSpeeds[fishCount] = { 0.5f, 0.3f };
+		float fishRadiiX[fishCount] = { 2.0f, 1.5f };
+		float fishRadiiZ[fishCount] = { 1.0f, 0.8f };
+		float fishHeights[fishCount] = { 0.0f, 0.3f };
 
-		// Fish rendering loop
 		for (int i = 0; i < fishCount; i++) {
-			// Compute the angle based on time and speed
-			float angle = (float)glfwGetTime() * fishSpeeds[i];
-
-			// Calculate position using ellipse equations
+			float angle = glfwGetTime() * fishSpeeds[i];
 			float x = fishRadiiX[i] * cos(angle);
 			float z = fishRadiiZ[i] * sin(angle);
 			glm::vec3 fishPosition(x, fishHeights[i], z);
 
-			// Tangent direction for rotation
 			glm::vec3 fishDirection(-sin(angle), 0.0f, cos(angle));
 			float fishAngle = glm::atan(fishDirection.x, fishDirection.z);
 
-			// Apply transformations: translate, rotate, scale
 			glm::mat4 fishModel = glm::mat4(1.0f);
 			fishModel = glm::translate(fishModel, fishPosition);
 			fishModel = glm::rotate(fishModel, fishAngle, glm::vec3(0.0f, 1.0f, 0.0f));
-			fishModel = glm::scale(fishModel, glm::vec3(5.0f)); // Scale fish size
+			fishModel = glm::scale(fishModel, glm::vec3(5.0f));
 
-			// Set shader uniforms and render fish model
 			lightingWithTextureShader.setMat4("model", fishModel);
 			piratObjModel.Draw(lightingWithTextureShader);
 		}

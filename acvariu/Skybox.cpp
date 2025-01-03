@@ -30,6 +30,11 @@ void Skybox::Render(Shader& shader, const glm::mat4& view, const glm::mat4& proj
 
 }
 
+void Skybox::ReloadTextures(const std::vector<std::string>& faces) {
+    glDeleteTextures(1, &cubemapTexture);
+    cubemapTexture = LoadCubemap(faces);
+}
+
 unsigned int Skybox::LoadCubemap(const std::vector<std::string>& faces) {
     unsigned int textureID;
     glGenTextures(1, &textureID);

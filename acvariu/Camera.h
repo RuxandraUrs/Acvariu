@@ -28,7 +28,7 @@ private:
     glm::vec3 startPosition;
 
 
-    
+
 
 public:
     Camera(int width, int height, const glm::vec3& position);

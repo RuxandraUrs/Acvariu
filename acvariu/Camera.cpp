@@ -1,4 +1,4 @@
-#include "Camera.h"
+ï»¿#include "Camera.h"
 
 Camera::Camera(int width, int height, const glm::vec3& position)
 {
@@ -102,7 +102,7 @@ void Camera::MouseControl(float xPos, float yPos) {
     xChange *= mouseSensitivity;
     yChange *= mouseSensitivity;
 
-    ProcessMouseMovement(xChange, yChange,true);
+    ProcessMouseMovement(xChange, yChange, true);
 }
 
 void Camera::ProcessMouseScroll(float yOffset) {
@@ -116,14 +116,14 @@ void Camera::ProcessMouseScroll(float yOffset) {
 }
 void Camera::ProcessMouseMovement(float xOffset, float yOffset, bool constrainPitch)
 {
-	constrainPitch = true;
+    constrainPitch = true;
     yaw += xOffset;
     pitch += yOffset;
 
     //std::cout << "yaw = " << yaw << std::endl;
     //std::cout << "pitch = " << pitch << std::endl;
 
-    // Avem grijã sã nu ne dãm peste cap
+    // Avem grijï¿½ sï¿½ nu ne dï¿½m peste cap
     if (constrainPitch) {
         if (pitch > 89.0f)
             pitch = 89.0f;
@@ -131,7 +131,7 @@ void Camera::ProcessMouseMovement(float xOffset, float yOffset, bool constrainPi
             pitch = -89.0f;
     }
 
-    // Se modificã vectorii camerei pe baza unghiurilor Euler
+    // Se modificï¿½ vectorii camerei pe baza unghiurilor Euler
     UpdateCameraVectors();
 }
 void Camera::UpdateCameraVectors() {

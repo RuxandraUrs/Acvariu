@@ -35,7 +35,7 @@ public:
     void RenderCuboid(Shader& shader, const Camera& camera);
     void RenderAlgae(Shader& shader, const Camera& camera, float time, glm::vec3 basePosition, int numAlgae, glm::vec3 color);
     unsigned int LoadTexture(const std::string& filePath);
-	
+
 
     void InitializeAlgaeBuffer();
 
