@@ -44,6 +44,6 @@ void main()
     finalColor += ambient + diffuse + specular;
 
     // Set transparency
-    float alpha = 0.15; // Adjust this for desired transparency
+    float alpha = 0.16; // Adjust this for desired transparency
     FragColor = vec4(finalColor, alpha); // Use alpha for transparency
 }
