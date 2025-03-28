@@ -1,2 +1,2 @@
 # Acvariu-
-Simularea unui acvariu cu pești care se misca, cu plante/pietre și cu bule de aer.
+Acvariu is an aquarium simulation project that brings a vibrant underwater world to life. It features animated fish gracefully swimming among aquatic plants and stones, enhanced by dynamic air bubbles that add to the realistic feel. Built primarily in C++, the project leverages GLFW for window creation and input handling, demonstrating modern graphics and simulation techniques. Whether you’re a graphics enthusiast or exploring simulation programming, Acvariu offers an immersive experience that captures the essence of underwater life.
